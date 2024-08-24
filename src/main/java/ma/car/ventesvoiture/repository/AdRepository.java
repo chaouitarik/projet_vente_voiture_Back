@@ -11,4 +11,5 @@ import java.util.List;
 public interface AdRepository extends JpaRepository<Ad, Long> {
     List<Ad> findByCategoryId(Long categoryId);
     List<Ad> findByUserId(Long userId);
+    List<Ad> findByTitleContainingIgnoreCase(String title);
 }
