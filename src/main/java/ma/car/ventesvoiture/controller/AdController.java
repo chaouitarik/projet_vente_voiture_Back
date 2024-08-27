@@ -3,6 +3,7 @@ package ma.car.ventesvoiture.controller;
 import ma.car.ventesvoiture.dto.AdRequest;
 import ma.car.ventesvoiture.entity.Ad;
 import ma.car.ventesvoiture.entity.Category;
+import ma.car.ventesvoiture.entity.Image;
 import ma.car.ventesvoiture.entity.Users;
 import ma.car.ventesvoiture.service.AdService;
 import ma.car.ventesvoiture.service.CategoryService;
@@ -21,8 +22,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/ads")
@@ -50,15 +53,14 @@ public class AdController {
     }
     @PostMapping(consumes = {"multipart/form-data"})
     public Ad createAd(@RequestPart("adData") AdRequest adRequest,
-                       @RequestPart(value = "image", required = false) MultipartFile image) {
+                       @RequestPart(value = "images", required = false) List<MultipartFile> images) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userEmail = authentication.getName(); // Cela suppose que le nom d'utilisateur est l'email
+        String userEmail = authentication.getName();
         Users user = userService.findByEmail(userEmail);
         Ad ad = new Ad();
-       // Optional<Users> user = Optional.of(new Users());
-       // user = userService.findById(1L);
         Category category = categoryService.findByName(adRequest.getCategoryName());
+
         ad.setTitle(adRequest.getTitle());
         ad.setCarburant(adRequest.getCarburant());
         ad.setDescription(adRequest.getDescription());
@@ -71,31 +73,48 @@ public class AdController {
         ad.setModel(adRequest.getModel());
         ad.setYear(adRequest.getYear());
         ad.setUser(user);
-        if (image != null && !image.isEmpty()) {
-            try {
-                ad.setImage(image.getBytes()); // Assumons que vous stockez l'image sous forme de BLOB
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to store image", e);
+
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile image : images) {
+                try {
+                    // Stocker l'image (vous pouvez ajouter une logique pour stocker plusieurs images)
+                    ad.addImage(image.getBytes()); // Assurez-vous d'avoir une relation OneToMany entre Ad et Image
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to store image", e);
+                }
             }
         }
 
-        adService.save(ad) ;
+        adService.save(ad);
         return ad;
     }
+
     @GetMapping("/ads/{id}/image")
     public ResponseEntity<Resource> getImage(@PathVariable Long id) {
         Ad ad = adService.findById(id).orElseThrow(() -> new RuntimeException("Ad not found"));
-        byte[] image = ad.getImage(); // Assurez-vous que l'image est stockée sous forme de byte[]
 
-        if (image == null) {
+        // Supposez que vous voulez récupérer la première image de la liste
+        Image image = ad.getImages().isEmpty() ? null : ad.getImages().get(0);
+
+        if (image == null || image.getData() == null) {
             return ResponseEntity.notFound().build();
         }
 
         return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_JPEG) // Utilisez le type MIME approprié selon l'image
+                .contentType(MediaType.IMAGE_JPEG) // Utilisez le type MIME approprié
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + id + ".jpg\"")
-                .body(new ByteArrayResource(image));
+                .body(new ByteArrayResource(image.getData()));
     }
+    @GetMapping("/{adId}/images")
+    public ResponseEntity<List<String>> getImages(@PathVariable Long adId) {
+        List<Image> images = adService.findImagesByAdId(adId);
+        List<String> imageBase64List = images.stream()
+                .map(image -> Base64.getEncoder().encodeToString(image.getData()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(imageBase64List);
+    }
+
 
     @DeleteMapping("/{id}")
     public void deleteAd(@PathVariable Long id) {

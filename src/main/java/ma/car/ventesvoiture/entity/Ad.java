@@ -3,6 +3,7 @@ package ma.car.ventesvoiture.entity;
 
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,6 +11,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity@Data
 @AllArgsConstructor
@@ -34,8 +37,8 @@ public class Ad {
     private String brand;
     private String model ;
     private String year ;
-    @Lob
-    private byte[] image;
+    //@Lob
+    //private byte[] image;
     @CreationTimestamp
     private LocalDateTime postedDate;
     @ManyToOne
@@ -44,5 +47,19 @@ public class Ad {
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "ad", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Image> images = new ArrayList<>();
+
+
+
+    public void addImage(byte[] imageData) {
+        Image image = new Image();
+        image.setData(imageData);
+        image.setAd(this);
+        this.images.add(image);
+    }
 
 }
