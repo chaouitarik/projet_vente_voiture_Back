@@ -47,8 +47,8 @@ public class Ad {
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
-
-
+   // @Column(nullable = false)
+    private String phonenumber ;
     @JsonIgnore
     @OneToMany(mappedBy = "ad", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Image> images = new ArrayList<>();
